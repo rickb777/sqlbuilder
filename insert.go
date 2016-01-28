@@ -41,7 +41,7 @@ func (s InsertStatement) SetSQL(col, sql string) InsertStatement {
 
 // Return returns a new statement with a RETURNING clause.
 func (s InsertStatement) Return(col string, dest interface{}) InsertStatement {
-	s.rets = append(s.rets, insertRet{sql: s.dbms.Quote(col), dest: dest})
+	s.rets = append(s.rets, insertRet{sql: s.dbms.Dialect.Quote(col), dest: dest})
 	return s
 }
 
@@ -57,18 +57,18 @@ func (s InsertStatement) Build() (query string, args []interface{}, dest []inter
 	idx := 0
 
 	for _, set := range s.sets {
-		cols = append(cols, s.dbms.Quote(set.col))
+		cols = append(cols, s.dbms.Dialect.Quote(set.col))
 
 		if set.raw {
 			vals = append(vals, set.arg.(string))
 		} else {
 			args = append(args, set.arg)
-			vals = append(vals, s.dbms.Placeholder(idx))
+			vals = append(vals, s.dbms.Dialect.Placeholder(idx))
 			idx++
 		}
 	}
 
-	query = "INSERT INTO " + s.dbms.Quote(s.table) + " (" + strings.Join(cols, ", ") + ") VALUES (" + strings.Join(vals, ", ") + ")"
+	query = "INSERT INTO " + s.dbms.Dialect.Quote(s.table) + " (" + strings.Join(cols, ", ") + ") VALUES (" + strings.Join(vals, ", ") + ")"
 
 	if len(s.rets) > 0 {
 		var args []string

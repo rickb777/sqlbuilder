@@ -46,10 +46,11 @@ func TestUpdateWithWhereMySQL(t *testing.T) {
 		Table("customers").
 		Set("name", "John").
 		Set("phone", "555").
-		Where("id = ?", 9).
+		Where("id", "= ?", 9).
+		Where("name", "NOT NULL").
 		Build()
 
-	expectedQuery := "UPDATE `customers` SET `name` = ?, `phone` = ? WHERE (id = ?)"
+	expectedQuery := "UPDATE `customers` SET `name` = ?, `phone` = ? WHERE (`id` = ?) AND (`name` NOT NULL)"
 	if query != expectedQuery {
 		t.Errorf("bad query: %s", query)
 	}
@@ -65,10 +66,10 @@ func TestUpdateWithWherePostgres(t *testing.T) {
 		Table("customers").
 		Set("name", "John").
 		Set("phone", "555").
-		Where("id = ?", 9).
+		Where("id", "= ?", 9).
 		Build()
 
-	expectedQuery := `UPDATE "customers" SET "name" = $1, "phone" = $2 WHERE (id = $3)`
+	expectedQuery := `UPDATE "customers" SET "name" = $1, "phone" = $2 WHERE ("id" = $3)`
 	if query != expectedQuery {
 		t.Errorf("bad query: %s", query)
 	}

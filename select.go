@@ -17,15 +17,15 @@ type SelectStatement struct {
 	lock    bool
 	limit   *int
 	offset  *int
-	order   string
+	order   []string
 	group   string
 	having  string
 }
 
 type sel struct {
-	col  string
-	dest interface{}
-	raw  bool
+	col, as string
+	dest    interface{}
+	raw     bool
 }
 
 type join struct {
@@ -42,10 +42,17 @@ func (s SelectStatement) From(table string) SelectStatement {
 // Map returns a new statement with column 'col' selected and scanned
 // into 'dest'. 'dest' may be nil if the value should not be scanned.
 func (s SelectStatement) Map(col string, dest interface{}) SelectStatement {
+	return s.MapAs(col, "", dest)
+}
+
+// Map returns a new statement with column 'col' selected and scanned
+// into 'dest'. An alias is provided using 'as' if required.
+// 'dest' may be nil if the value should not be scanned.
+func (s SelectStatement) MapAs(col, as string, dest interface{}) SelectStatement {
 	if dest == nil {
 		dest = nullDest
 	}
-	s.selects = append(s.selects, sel{col, dest, false})
+	s.selects = append(s.selects, sel{col, as, dest, false})
 	return s
 }
 
@@ -54,7 +61,7 @@ func (s SelectStatement) MapSQL(col string, dest interface{}) SelectStatement {
 	if dest == nil {
 		dest = nullDest
 	}
-	s.selects = append(s.selects, sel{col, dest, true})
+	s.selects = append(s.selects, sel{col, "", dest, true})
 	return s
 }
 
@@ -66,8 +73,8 @@ func (s SelectStatement) Join(sql string, args ...interface{}) SelectStatement {
 
 // Where returns a new statement with condition 'cond'. Multiple conditions
 // are combined with AND.
-func (s SelectStatement) Where(cond string, args ...interface{}) SelectStatement {
-	s.wheres = append(s.wheres, where{cond, args})
+func (s SelectStatement) Where(col, cond string, args ...interface{}) SelectStatement {
+	s.wheres = append(s.wheres, where{col, cond, args})
 	return s
 }
 
@@ -83,9 +90,9 @@ func (s SelectStatement) Offset(offset int) SelectStatement {
 	return s
 }
 
-// Order returns a new statement with ordering 'order'.
+// Order returns a new statement with ordering 'order', which may be a list of column names.
 // Only the last Order() is used.
-func (s SelectStatement) Order(order string) SelectStatement {
+func (s SelectStatement) Order(order ...string) SelectStatement {
 	s.order = order
 	return s
 }
@@ -119,10 +126,16 @@ func (s SelectStatement) Build() (query string, args []interface{}, dest []inter
 	if len(s.selects) > 0 {
 		for _, sel := range s.selects {
 			col := sel.col
+			as := sel.as
 			if !sel.raw {
-				col = s.dbms.Quote(col)
+				col = s.dbms.Dialect.Quote(col)
+				as = s.dbms.Dialect.Quote(as)
 			}
-			cols = append(cols, col)
+			if sel.as != "" {
+				cols = append(cols, col + " AS " + as)
+			} else {
+				cols = append(cols, col)
+			}
 			if sel.dest == nil {
 				dest = append(dest, &nullDest)
 			} else {
@@ -133,12 +146,13 @@ func (s SelectStatement) Build() (query string, args []interface{}, dest []inter
 		cols = append(cols, "1")
 		dest = append(dest, &nullDest)
 	}
-	query = "SELECT " + strings.Join(cols, ", ") + " FROM " + s.dbms.Quote(s.table)
+
+	query = "SELECT " + strings.Join(cols, ", ") + " FROM " + s.dbms.Dialect.Quote(s.table)
 
 	for _, join := range s.joins {
 		sql := join.sql
 		for _, arg := range join.args {
-			sql = strings.Replace(sql, "?", s.dbms.Placeholder(idx), 1)
+			sql = strings.Replace(sql, "?", s.dbms.Dialect.Placeholder(idx), 1)
 			idx++
 			args = append(args, arg)
 		}
@@ -146,21 +160,12 @@ func (s SelectStatement) Build() (query string, args []interface{}, dest []inter
 	}
 
 	if len(s.wheres) > 0 {
-		var sqls []string
-		for _, where := range s.wheres {
-			sql := "(" + where.sql + ")"
-			for _, arg := range where.args {
-				sql = strings.Replace(sql, "?", s.dbms.Placeholder(idx), 1)
-				idx++
-				args = append(args, arg)
-			}
-			sqls = append(sqls, sql)
-		}
-		query += " WHERE " + strings.Join(sqls, " AND ")
+		query, args, idx = buildWhereClause(query, args, idx, s.wheres, s.dbms.Dialect)
 	}
 
-	if s.order != "" {
-		query += " ORDER BY " + s.order
+	if len(s.order) > 0 {
+		quoted := quoteStrings(s.order, s.dbms.Dialect)
+		query += " ORDER BY " + strings.Join(quoted, ", ")
 	}
 
 	if s.group != "" {

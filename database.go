@@ -1,36 +1,14 @@
 package sqlbuilder
 
-import (
-	"strconv"
-	"strings"
-)
-
 // DBMS represents a DBMS.
 type DBMS struct {
-	quote string
+	Dialect Dialect
 }
 
 var (
-	MySQL    = DBMS{quote: "`"}
-	Postgres = DBMS{quote: `"`}
+	MySQL = DBMS{MySQLDialect{}}
+	Postgres = DBMS{PostgresDialect{}}
 )
-
-// Placeholder returns the placeholder string for the given index.
-func (dbms DBMS) Placeholder(idx int) string {
-	switch dbms {
-	case MySQL:
-		return "?"
-	case Postgres:
-		return "$" + strconv.Itoa(idx+1)
-	default:
-		panic("sqlbuilder: unknown DBMS")
-	}
-}
-
-// Quote returns s quoted.
-func (dbms DBMS) Quote(s string) string {
-	return dbms.quote + strings.Replace(s, dbms.quote, "\\"+dbms.quote, -1) + dbms.quote
-}
 
 // Select returns a new SELECT statement.
 func (dbms DBMS) Select() SelectStatement {
@@ -46,6 +24,12 @@ func (dbms DBMS) Insert() InsertStatement {
 func (dbms DBMS) Update() UpdateStatement {
 	return UpdateStatement{dbms: dbms}
 }
+
+// Delete returns a new UPDATE statement.
+func (dbms DBMS) Delete() DeleteStatement {
+	return DeleteStatement{dbms: dbms}
+}
+
 
 // DefaultDBMS is the DBMS used by the package-level Select, Insert, and Update functions.
 var DefaultDBMS = MySQL
@@ -63,4 +47,9 @@ func Insert() InsertStatement {
 // Update returns a new UPDATE statement using the default DBMS.
 func Update() UpdateStatement {
 	return DefaultDBMS.Update()
+}
+
+// Delete returns a new DELETE statement using the default DBMS.
+func Delete() DeleteStatement {
+	return DefaultDBMS.Delete()
 }

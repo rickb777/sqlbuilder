@@ -39,18 +39,18 @@ func (s UpdateStatement) SetSQL(col string, sql string) UpdateStatement {
 
 // Where returns a new statement with condition 'cond'.
 // Multiple Where() are combined with AND.
-func (s UpdateStatement) Where(cond string, args ...interface{}) UpdateStatement {
-	s.wheres = append(s.wheres, where{cond, args})
+func (s UpdateStatement) Where(col, cond string, args ...interface{}) UpdateStatement {
+	s.wheres = append(s.wheres, where{col, cond, args})
 	return s
 }
 
 // Build builds the SQL query. It returns the query and the argument slice.
 func (s UpdateStatement) Build() (query string, args []interface{}) {
 	if len(s.sets) == 0 {
-		panic("sqlbuilder: no columns set")
+		panic("sqlbuilder: UPDATE with no columns set")
 	}
 
-	query = "UPDATE " + s.dbms.Quote(s.table) + " SET "
+	query = "UPDATE " + s.dbms.Dialect.Quote(s.table) + " SET "
 	var sets []string
 	idx := 0
 
@@ -59,29 +59,16 @@ func (s UpdateStatement) Build() (query string, args []interface{}) {
 		if set.raw {
 			arg = set.arg.(string)
 		} else {
-			arg = s.dbms.Placeholder(idx)
+			arg = s.dbms.Dialect.Placeholder(idx)
 			idx++
 			args = append(args, set.arg)
 		}
-		sets = append(sets, s.dbms.Quote(set.col)+" = "+arg)
+		sets = append(sets, s.dbms.Dialect.Quote(set.col)+" = "+arg)
 	}
 	query += strings.Join(sets, ", ")
 
 	if len(s.wheres) > 0 {
-		var sqls []string
-
-		for _, w := range s.wheres {
-			sql := "(" + w.sql + ")"
-			for _, arg := range w.args {
-				p := s.dbms.Placeholder(idx)
-				idx++
-				sql = strings.Replace(sql, "?", p, 1)
-				sqls = append(sqls, sql)
-				args = append(args, arg)
-			}
-		}
-
-		query += " WHERE " + strings.Join(sqls, " AND ")
+		query, args, idx = buildWhereClause(query, args, idx, s.wheres, s.dbms.Dialect)
 	}
 
 	return

@@ -23,7 +23,7 @@ query, args, dest := sqlbuilder.Select().
         From("customers").
         Map("id", &customer.ID).
         Map("name", &customer.Name).
-        Map("phone", &customer.Phone).
+        MapAs("telephone", "phone", &customer.Phone).
         Order("id DESC").
         Limit(1).
         Build()
@@ -49,7 +49,17 @@ query, args := sqlbuilder.Update().
         Table("customers").
         Set("name", "John").
         Set("phone", "555").
-        Where("id = ?", 1).
+        Where("id", "= ?", 1).
+        Build()
+err := db.Exec(query, args...)
+```
+
+**DELETE**
+
+```go
+query, args := sqlbuilder.Delete().
+        From("customers").
+        Where("id", "= ?", 1).
         Build()
 err := db.Exec(query, args...)
 ```
