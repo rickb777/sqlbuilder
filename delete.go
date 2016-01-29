@@ -38,12 +38,21 @@ func (s DeleteStatement) As(alias string) DeleteStatement {
 	return s
 }
 
-// Where returns a new statement with condition 'cond'.
-// Multiple Where() are combined with AND.
+// Where returns a new statement with a where-clause consisting of a column, a condition and
+// the necessary arguments to that condition.
+// For example Where("x", "BETWEEN ? AND ?", 10, 20)
+//
+// Multiple where-clauses are combined with AND.
 // Be careful to use this always; a delete without a where clause is probably incorrect.
 func (s DeleteStatement) Where(col, cond string, args ...interface{}) DeleteStatement {
 	s.wheres = append(s.wheres, where{col, cond, args})
 	return s
+}
+
+// WhereEq returns a new statement with condition 'col = ?'. This is a shorthand for Where.
+// Multiple where-clauses are combined with AND.
+func (s DeleteStatement) WhereEq(col string, args ...interface{}) DeleteStatement {
+	return s.Where(col, "=?", args...)
 }
 
 // Build builds the SQL query. It returns the query and the argument slice.
@@ -52,7 +61,7 @@ func (s DeleteStatement) Build() (query string, args []interface{}) {
 		panic("sqlbuilder: DELETE with no where clauses")
 	}
 
-	query = "DELETE FROM " + s.table.Quoted(s.dbms.Dialect)
+	query = "DELETE FROM " + s.table.QuotedAs(s.dbms.Dialect)
 
 	query, args, _ = buildWhereClause(query, args, 0, s.wheres, s.dbms.Dialect)
 

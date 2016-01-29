@@ -6,7 +6,7 @@ import (
 )
 
 func TestUpdateMySQL(t *testing.T) {
-	query, args := MySQL.Update().
+	query, args := MySQLQuoted.Update().
 		Table("customers").
 		Set("name", "John").
 		Set("phone", "555").
@@ -42,7 +42,7 @@ func TestUpdatePostgres(t *testing.T) {
 }
 
 func TestUpdateWithWhereMySQL(t *testing.T) {
-	query, args := MySQL.Update().
+	query, args := MySQLQuoted.Update().
 		Table("customers").
 		Set("name", "John").
 		Set("phone", "555").
@@ -50,7 +50,7 @@ func TestUpdateWithWhereMySQL(t *testing.T) {
 		Where("name", "NOT NULL").
 		Build()
 
-	expectedQuery := "UPDATE `customers` SET `name` = ?, `phone` = ? WHERE (`id` = ?) AND (`name` NOT NULL)"
+	expectedQuery := "UPDATE `customers` SET `name` = ?, `phone` = ?\n WHERE (`id` = ?) AND (`name` NOT NULL)"
 	if query != expectedQuery {
 		t.Errorf("bad query: %s", query)
 	}
@@ -69,7 +69,8 @@ func TestUpdateWithWherePostgres(t *testing.T) {
 		Where("id", "= ?", 9).
 		Build()
 
-	expectedQuery := `UPDATE "customers" SET "name" = $1, "phone" = $2 WHERE ("id" = $3)`
+	expectedQuery := `UPDATE "customers" SET "name" = $1, "phone" = $2
+ WHERE ("id" = $3)`
 	if query != expectedQuery {
 		t.Errorf("bad query: %s", query)
 	}
@@ -84,7 +85,7 @@ func TestUpdateReuse(t *testing.T) {
 	baseStatement := MySQL.Update().Table("customers").Set("name", "John")
 
 	query, args := baseStatement.Set("phone", "555").Build()
-	expectedQuery := "UPDATE `customers` SET `name` = ?, `phone` = ?"
+	expectedQuery := "UPDATE customers SET name = ?, phone = ?"
 	if query != expectedQuery {
 		t.Errorf("bad query: %s", query)
 	}
@@ -94,7 +95,7 @@ func TestUpdateReuse(t *testing.T) {
 	}
 
 	query, args = baseStatement.Set("city", "Berlin").Build()
-	expectedQuery = "UPDATE `customers` SET `name` = ?, `city` = ?"
+	expectedQuery = "UPDATE customers SET name = ?, city = ?"
 	if query != expectedQuery {
 		t.Errorf("bad query: %s", query)
 	}

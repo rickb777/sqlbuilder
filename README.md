@@ -23,12 +23,25 @@ query, args, dest := sqlbuilder.Select().
         From("customers").
         Map("id", &customer.ID).
         Map("name", &customer.Name).
-        MapAs("telephone", "phone", &customer.Phone).
-        Order("id DESC").
+        Map("telephone", &customer.Phone).As("phone").
+        OrderBy("id DESC").
         Limit(1).
         Build()
-
 err := db.QueryRow(query, args...).Scan(dest...)
+```
+
+Joins have a fluent style:
+
+```go
+query, args, dest := sqlbuilder.Select().
+        From("customers").As("c").
+        Inner().Join("orders").As("o").On("o.customer_id", "c.id").
+        OrderBy("o.total_price").
+        Map("c.id", &cview.ID).
+        Map("c.name", &cview.Name).
+        Map("c.telephone", &cview.Phone).
+        Map("o.total_price", &cview.TotalPrice).
+        Build()
 ```
 
 **INSERT**
@@ -59,7 +72,7 @@ err := db.Exec(query, args...)
 ```go
 query, args := sqlbuilder.Delete().
         From("customers").
-        Where("id", "= ?", 1).
+        WhereEq("id", 1).
         Build()
 err := db.Exec(query, args...)
 ```
@@ -68,8 +81,8 @@ Supported DBMS
 --------------
 
 `sqlbuilder` supports building queries for MySQL and Postgres databases. You
-can set the default DBMS used by the package-level Select, Update and Insert
-functions with:
+can set the default DBMS used by the package-level Select, Update, Insert
+and Delete functions with:
 
 ```go
 sqlbuilder.DefaultDBMS = sqlbuilder.Postgres

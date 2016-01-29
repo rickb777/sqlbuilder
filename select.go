@@ -14,6 +14,9 @@ type SelectStatement struct {
 	last    lastWas
 	table   name
 	selects []sel
+	joinNat string
+	joinOp  string
+	joinTbl name
 	joins   []join
 	wheres  []where
 	lock    bool
@@ -31,8 +34,11 @@ type sel struct {
 }
 
 type join struct {
-	sql  string
-	args []interface{}
+	op       string
+	table    name
+	onL, onR name
+	using    []string
+	dialect  Dialect
 }
 
 // From returns a new statement with the table to select from set to 'table'.
@@ -68,6 +74,8 @@ func (s SelectStatement) As(alias string) SelectStatement {
 	switch s.last {
 	case lastWasTableName:
 		s.table = name{s.table.name, alias}
+	case lastWasJoinTableName:
+		s.joinTbl = name{s.joinTbl.name, alias}
 	case lastWasColumnName:
 		i := len(s.selects) - 1
 		sel := s.selects[i]
@@ -79,21 +87,77 @@ func (s SelectStatement) As(alias string) SelectStatement {
 	return s
 }
 
-// Join returns a new statement with JOIN expression 'sql'.
-func (s SelectStatement) Join(sql string, args ...interface{}) SelectStatement {
-	s.joins = append(s.joins, join{sql, args})
+// Natural precedes Join when required.
+func (s SelectStatement) Natural() SelectStatement {
+	s.joinNat = "NATURAL "
 	return s
 }
 
-// Where returns a new statement with condition on a specified column.
-// Multiple conditions are combined with AND.
+// Left precedes Join when required.
+func (s SelectStatement) Left() SelectStatement {
+	s.joinOp = "LEFT "
+	return s
+}
+
+// LeftOuter precedes Join when required.
+func (s SelectStatement) LeftOuter() SelectStatement {
+	s.joinOp = "LEFT OUTER "
+	return s
+}
+
+// Inner precedes Join when required.
+func (s SelectStatement) Inner() SelectStatement {
+	s.joinOp = "INNER "
+	return s
+}
+
+// Cross precedes Join when required.
+func (s SelectStatement) Cross() SelectStatement {
+	s.joinOp = "CROSS "
+	return s
+}
+
+// Join sets the table name for the current join.
+func (s SelectStatement) Join(table string) SelectStatement {
+	s.joinTbl = name{table, ""}
+	s.last = lastWasJoinTableName
+	return s
+}
+
+// On completes a JOIN clause with the necessary constraint
+func (s SelectStatement) On(onL, onR string) SelectStatement {
+	op := s.joinNat + s.joinOp + "JOIN"
+	j := join{op, s.joinTbl, splitAsName(onL), splitAsName(onR), nil, s.dbms.Dialect}
+	s.joins = append(s.joins, j)
+	s.joinNat = ""
+	s.joinOp = ""
+	s.joinTbl = name{}
+	return s
+}
+
+// Using completes a JOIN clause with the necessary columns
+func (s SelectStatement) Using(col ...string) SelectStatement {
+	op := s.joinNat + s.joinOp + "JOIN"
+	j := join{op, s.joinTbl, name{}, name{}, col, s.dbms.Dialect}
+	s.joins = append(s.joins, j)
+	s.joinNat = ""
+	s.joinOp = ""
+	s.joinTbl = name{}
+	return s
+}
+
+// Where returns a new statement with a where-clause consisting of a column, a condition and
+// the necessary arguments to that condition.
+// For example Where("x", "BETWEEN ? AND ?", 10, 20)
+//
+// Multiple where-clauses are combined with AND.
 func (s SelectStatement) Where(col, cond string, args ...interface{}) SelectStatement {
 	s.wheres = append(s.wheres, where{col, cond, args})
 	return s
 }
 
-// WhereEq returns a new statement with condition 'col = ?'.
-// Multiple conditions are combined with AND.
+// WhereEq returns a new statement with condition 'col = ?'. This is a shorthand for Where.
+// Multiple where-clauses are combined with AND.
 func (s SelectStatement) WhereEq(col string, args ...interface{}) SelectStatement {
 	return s.Where(col, "=?", args...)
 }
@@ -110,9 +174,9 @@ func (s SelectStatement) Offset(offset int) SelectStatement {
 	return s
 }
 
-// Order returns a new statement with ordering 'order', which may be a list of column names.
-// Only the last Order() is used.
-func (s SelectStatement) Order(order ...string) SelectStatement {
+// OrderBy returns a new statement with ordering 'order', which may be a list of column names.
+// Only the last OrderBy() is used.
+func (s SelectStatement) OrderBy(order ...string) SelectStatement {
 	s.order = order
 	return s
 }
@@ -148,7 +212,7 @@ func (s SelectStatement) Build() (query string, args []interface{}, dest []inter
 			if sel.raw {
 				cols = append(cols, sel.col.String())
 			} else {
-				cols = append(cols, sel.col.Quoted(s.dbms.Dialect))
+				cols = append(cols, sel.col.QuotedAs(s.dbms.Dialect))
 			}
 			if sel.dest == nil {
 				dest = append(dest, &nullDest)
@@ -161,18 +225,12 @@ func (s SelectStatement) Build() (query string, args []interface{}, dest []inter
 		dest = append(dest, &nullDest)
 	}
 
-	query = fmt.Sprintf("SELECT %s FROM %s",
+	query = fmt.Sprintf("SELECT %s\n FROM %s",
 		strings.Join(cols, ", "),
-		s.table.Quoted(s.dbms.Dialect))
+		s.table.QuotedAs(s.dbms.Dialect))
 
 	for _, join := range s.joins {
-		sql := join.sql
-		for _, arg := range join.args {
-			sql = strings.Replace(sql, "?", s.dbms.Dialect.Placeholder(idx), 1)
-			idx++
-			args = append(args, arg)
-		}
-		query += " " + sql
+		query += join.String()
 	}
 
 	if len(s.wheres) > 0 {
@@ -181,28 +239,40 @@ func (s SelectStatement) Build() (query string, args []interface{}, dest []inter
 
 	if len(s.order) > 0 {
 		quoted := quoteStrings(s.order, s.dbms.Dialect)
-		query += " ORDER BY " + strings.Join(quoted, ", ")
+		query += "\n ORDER BY " + strings.Join(quoted, ", ")
 	}
 
 	if s.group != "" {
-		query += " GROUP BY " + s.group
+		query += "\n GROUP BY " + s.group
 	}
 
 	if s.having != "" {
-		query += " HAVING " + s.having
+		query += "\n HAVING " + s.having
 	}
 
 	if s.limit != nil {
-		query += " LIMIT " + strconv.Itoa(*s.limit)
+		query += "\n LIMIT " + strconv.Itoa(*s.limit)
 	}
 
 	if s.offset != nil {
-		query += " OFFSET " + strconv.Itoa(*s.offset)
+		query += "\n OFFSET " + strconv.Itoa(*s.offset)
 	}
 
 	if s.lock {
-		query += " FOR UPDATE"
+		query += "\n FOR UPDATE"
 	}
 
 	return
+}
+
+func (j join) String() string {
+	tbl := j.table.QuotedAs(j.dialect)
+	if len(j.using) > 0 {
+		cols := strings.Join(quoteStrings(j.using, j.dialect), ", ")
+		return fmt.Sprintf("\n %s %s USING %s", j.op, tbl, cols)
+	} else {
+		onL := j.onL.QuotedDot(j.dialect)
+		onR := j.onR.QuotedDot(j.dialect)
+		return fmt.Sprintf("\n %s %s ON %s = %s", j.op, tbl, onL, onR)
+	}
 }

@@ -6,7 +6,7 @@ import (
 )
 
 func TestInsertMySQL(t *testing.T) {
-	query, args, _ := MySQL.Insert().
+	query, args, _ := MySQLQuoted.Insert().
 		Into("customers").
 		Set("name", "John").
 		Set("phone", "555").

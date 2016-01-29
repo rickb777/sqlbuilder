@@ -30,7 +30,7 @@ func buildWhereClause(query string, args []interface{}, idx int, wheres []where,
 			sqls = append(sqls, sql)
 		}
 
-		query += " WHERE " + strings.Join(sqls, " AND ")
+		query += "\n WHERE " + strings.Join(sqls, " AND ")
 	}
 	return query, args, idx
 }

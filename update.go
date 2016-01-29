@@ -38,11 +38,20 @@ func (s UpdateStatement) SetSQL(col string, sql string) UpdateStatement {
 	return s
 }
 
-// Where returns a new statement with condition 'cond'.
-// Multiple Where() are combined with AND.
+// Where returns a new statement with a where-clause consisting of a column, a condition and
+// the necessary arguments to that condition.
+// For example Where("x", "BETWEEN ? AND ?", 10, 20)
+//
+// Multiple where-clauses are combined with AND.
 func (s UpdateStatement) Where(col, cond string, args ...interface{}) UpdateStatement {
 	s.wheres = append(s.wheres, where{col, cond, args})
 	return s
+}
+
+// WhereEq returns a new statement with condition 'col = ?'. This is a shorthand for Where.
+// Multiple where-clauses are combined with AND.
+func (s UpdateStatement) WhereEq(col string, args ...interface{}) UpdateStatement {
+	return s.Where(col, "=?", args...)
 }
 
 // Build builds the SQL query. It returns the query and the argument slice.
@@ -51,7 +60,7 @@ func (s UpdateStatement) Build() (query string, args []interface{}) {
 		panic("sqlbuilder: UPDATE with no columns set")
 	}
 
-	query = "UPDATE " + s.table.Quoted(s.dbms.Dialect) + " SET "
+	query = "UPDATE " + s.table.QuotedAs(s.dbms.Dialect) + " SET "
 	var sets []string
 	idx := 0
 

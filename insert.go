@@ -100,7 +100,7 @@ func (s InsertStatement) Build() (query string, args []interface{}, dest []inter
 	}
 
 	query = fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)%s",
-		s.table.Quoted(s.dbms.Dialect),
+		s.table.QuotedAs(s.dbms.Dialect),
 		strings.Join(cols, ", "),
 		strings.Join(vals, ", "),
 		returning)

@@ -16,8 +16,13 @@ type Dialect interface {
 	Quote(s string) string
 }
 
+type PlainDialect struct{}
 type MySQLDialect struct{}
 type PostgresDialect struct{}
+
+func (dialect PlainDialect) Placeholder(idx int) string {
+	return "?"
+}
 
 func (dialect MySQLDialect) Placeholder(idx int) string {
 	return "?"
@@ -29,6 +34,10 @@ func (dialect PostgresDialect) Placeholder(idx int) string {
 
 func quote(s, quote string) string {
 	return quote + strings.Replace(s, quote, "\\"+quote, -1) + quote
+}
+
+func (dialect PlainDialect) Quote(s string) string {
+	return s
 }
 
 func (dialect MySQLDialect) Quote(s string) string {

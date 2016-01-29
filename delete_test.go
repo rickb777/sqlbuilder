@@ -6,12 +6,12 @@ import (
 )
 
 func TestDeleteWithWhereMySQL(t *testing.T) {
-	query, args := MySQL.Delete().
+	query, args := MySQLQuoted.Delete().
 		From("customers").
 		Where("id", "= ?", 9).
 		Build()
 
-	expectedQuery := "DELETE FROM `customers` WHERE (`id` = ?)"
+	expectedQuery := "DELETE FROM `customers`\n WHERE (`id` = ?)"
 	if query != expectedQuery {
 		t.Errorf("bad query: %s", query)
 	}
@@ -28,7 +28,8 @@ func TestDeleteWithWherePostgres(t *testing.T) {
 		Where("id", "= ?", 9).
 		Build()
 
-	expectedQuery := `DELETE FROM "customers" WHERE ("id" = $1)`
+	expectedQuery := `DELETE FROM "customers"
+ WHERE ("id" = $1)`
 	if query != expectedQuery {
 		t.Errorf("bad query: %s", query)
 	}

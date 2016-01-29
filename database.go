@@ -6,8 +6,11 @@ type DBMS struct {
 }
 
 var (
-	// The syntax variant needed by MySQL (also works with SQLite)
-	MySQL = DBMS{MySQLDialect{}}
+	// The simplest syntax variant, compatible with MySQL and SQLite.
+	// Identifiers must be simple alphanumeric strings (with underscore optional).
+	MySQL = DBMS{PlainDialect{}}
+	// The syntax variant needed by MySQL with identifiers enclosed in back-ticks.
+	MySQLQuoted = DBMS{MySQLDialect{}}
 	// The syntax variant needed by PostgreSQL
 	Postgres = DBMS{PostgresDialect{}}
 )
