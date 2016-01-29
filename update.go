@@ -13,7 +13,8 @@ type updateSet struct {
 // UpdateStatement represents an UPDATE statement.
 type UpdateStatement struct {
 	dbms   DBMS
-	table  string
+	last   lastWas
+	table  name
 	sets   []updateSet
 	wheres []where
 	args   []interface{}
@@ -21,7 +22,7 @@ type UpdateStatement struct {
 
 // Table returns a new statement with the table to update set to 'table'.
 func (s UpdateStatement) Table(table string) UpdateStatement {
-	s.table = table
+	s.table = name{table, ""}
 	return s
 }
 
@@ -50,7 +51,7 @@ func (s UpdateStatement) Build() (query string, args []interface{}) {
 		panic("sqlbuilder: UPDATE with no columns set")
 	}
 
-	query = "UPDATE " + s.dbms.Dialect.Quote(s.table) + " SET "
+	query = "UPDATE " + s.table.Quoted(s.dbms.Dialect) + " SET "
 	var sets []string
 	idx := 0
 
@@ -63,7 +64,7 @@ func (s UpdateStatement) Build() (query string, args []interface{}) {
 			idx++
 			args = append(args, set.arg)
 		}
-		sets = append(sets, s.dbms.Dialect.Quote(set.col)+" = "+arg)
+		sets = append(sets, s.dbms.Dialect.Quote(set.col) + " = " + arg)
 	}
 	query += strings.Join(sets, ", ")
 

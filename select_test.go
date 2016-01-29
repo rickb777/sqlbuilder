@@ -83,18 +83,18 @@ func TestSelectWithWhereMySQL(t *testing.T) {
 	c := customer{}
 
 	query, args, _ := MySQL.Select().
-		From("customers").
-		Map("id", &c.ID).
-		Map("name", &c.Name).
-		MapAs("telephone", "phone", &c.Phone).
-		Map("age", &c.Age).
-		Where("id", "= ?", 9).
-		Where("name", "IS NOT NULL").
-		Where("age", "BETWEEN ? AND ?", 10, 20).
+		From("customers").As("c").
+		Map("c.id", &c.ID).
+		Map("c.name", &c.Name).
+		Map("c.telephone", &c.Phone).As("phone").
+		Map("c.age", &c.Age).
+		Where("c.id", "= ?", 9).
+		Where("c.name", "IS NOT NULL").
+		Where("c.age", "BETWEEN ? AND ?", 10, 20).
 		Build()
 
-	expectedQuery := "SELECT `id`, `name`, `telephone` AS `phone`, `age` FROM `customers` " +
-	"WHERE (`id` = ?) AND (`name` IS NOT NULL) AND (`age` BETWEEN ? AND ?)"
+	expectedQuery := "SELECT `c.id`, `c.name`, `c.telephone` AS `phone`, `c.age` FROM `customers` AS `c` " +
+	"WHERE (`c.id` = ?) AND (`c.name` IS NOT NULL) AND (`c.age` BETWEEN ? AND ?)"
 	if query != expectedQuery {
 		t.Errorf("bad query: %s", query)
 	}
@@ -118,17 +118,18 @@ func TestSelectWithWherePostgres(t *testing.T) {
 	c := customer{}
 
 	query, args, _ := Postgres.Select().
-		From("customers").
-		Map("id", &c.ID).
-		Map("name", &c.Name).
-		MapAs("telephone", "phone", &c.Phone).
-		Where("id", "= ?", 9).
-		Where("name", "IS NOT NULL").
-		Where("age", "BETWEEN ? AND ?", 10, 20).
-		Build()
+	From("customers").As("c").
+	Map("c.id", &c.ID).
+	Map("c.name", &c.Name).
+	Map("c.telephone", &c.Phone).As("phone").
+	Map("c.age", &c.Age).
+	Where("c.id", "= ?", 9).
+	Where("c.name", "IS NOT NULL").
+	Where("c.age", "BETWEEN ? AND ?", 10, 20).
+	Build()
 
-	expectedQuery := `SELECT "id", "name", "telephone" AS "phone" FROM "customers" `+
-	`WHERE ("id" = $1) AND ("name" IS NOT NULL) AND ("age" BETWEEN $2 AND $3)`
+	expectedQuery := `SELECT "c.id", "c.name", "c.telephone" AS "phone", "c.age" FROM "customers" AS "c" `+
+	`WHERE ("c.id" = $1) AND ("c.name" IS NOT NULL) AND ("c.age" BETWEEN $2 AND $3)`
 	if query != expectedQuery {
 		t.Errorf("bad query: %s", query)
 	}

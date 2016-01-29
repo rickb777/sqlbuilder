@@ -6,7 +6,9 @@ type DBMS struct {
 }
 
 var (
+	// The syntax variant needed by MySQL (also works with SQLite)
 	MySQL = DBMS{MySQLDialect{}}
+	// The syntax variant needed by PostgreSQL
 	Postgres = DBMS{PostgresDialect{}}
 )
 
@@ -31,7 +33,8 @@ func (dbms DBMS) Delete() DeleteStatement {
 }
 
 
-// DefaultDBMS is the DBMS used by the package-level Select, Insert, and Update functions.
+// DefaultDBMS is the DBMS used by the package-level Select,
+// Insert, Update and Delete functions.
 var DefaultDBMS = MySQL
 
 // Select returns a new SELECT statement using the default DBMS.

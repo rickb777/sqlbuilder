@@ -1,6 +1,9 @@
 package sqlbuilder
 
-import "strings"
+import (
+	"strings"
+	"fmt"
+)
 
 type insertSet struct {
 	col string
@@ -16,14 +19,32 @@ type insertRet struct {
 // InsertStatement represents an INSERT statement.
 type InsertStatement struct {
 	dbms  DBMS
-	table string
+	last  lastWas
+	table name
 	sets  []insertSet
 	rets  []insertRet
 }
 
 // Into returns a new statement with the table to insert into set to 'table'.
 func (s InsertStatement) Into(table string) InsertStatement {
-	s.table = table
+	s.table = name{table, ""}
+	s.last = lastWasTableName
+	return s
+}
+
+// As modifies the preceding table or column name by setting an alias.
+func (s InsertStatement) As(alias string) InsertStatement {
+	switch s.last {
+	case lastWasTableName:
+		s.table = name{s.table.name, alias}
+	//case lastWasColumnName:
+	//	i := len(s.selects) - 1
+	//	sel := s.selects[i]
+	//	s.selects = s.selects[:i]
+	//	sel.col.alias = alias
+	//	s.selects = append(s.selects, sel)
+	}
+	s.last = lastWasUnknown
 	return s
 }
 
@@ -68,16 +89,21 @@ func (s InsertStatement) Build() (query string, args []interface{}, dest []inter
 		}
 	}
 
-	query = "INSERT INTO " + s.dbms.Dialect.Quote(s.table) + " (" + strings.Join(cols, ", ") + ") VALUES (" + strings.Join(vals, ", ") + ")"
-
+	returning := ""
 	if len(s.rets) > 0 {
 		var args []string
 		for _, ret := range s.rets {
 			args = append(args, ret.sql)
 			dest = append(dest, ret.dest)
 		}
-		query += " RETURNING " + strings.Join(args, ", ")
+		returning = " RETURNING " + strings.Join(args, ", ")
 	}
+
+	query = fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)%s",
+		s.table.Quoted(s.dbms.Dialect),
+		strings.Join(cols, ", "),
+		strings.Join(vals, ", "),
+		returning)
 
 	return
 }

@@ -3,6 +3,7 @@ package sqlbuilder
 import (
 	"strconv"
 	"strings"
+	"fmt"
 )
 
 var nullDest interface{}
@@ -10,7 +11,8 @@ var nullDest interface{}
 // SelectStatement represents a SELECT statement.
 type SelectStatement struct {
 	dbms    DBMS
-	table   string
+	last    lastWas
+	table   name
 	selects []sel
 	joins   []join
 	wheres  []where
@@ -23,9 +25,9 @@ type SelectStatement struct {
 }
 
 type sel struct {
-	col, as string
-	dest    interface{}
-	raw     bool
+	col  name
+	dest interface{}
+	raw  bool
 }
 
 type join struct {
@@ -35,24 +37,19 @@ type join struct {
 
 // From returns a new statement with the table to select from set to 'table'.
 func (s SelectStatement) From(table string) SelectStatement {
-	s.table = table
+	s.table = name{table, ""}
+	s.last = lastWasTableName
 	return s
 }
 
 // Map returns a new statement with column 'col' selected and scanned
 // into 'dest'. 'dest' may be nil if the value should not be scanned.
 func (s SelectStatement) Map(col string, dest interface{}) SelectStatement {
-	return s.MapAs(col, "", dest)
-}
-
-// Map returns a new statement with column 'col' selected and scanned
-// into 'dest'. An alias is provided using 'as' if required.
-// 'dest' may be nil if the value should not be scanned.
-func (s SelectStatement) MapAs(col, as string, dest interface{}) SelectStatement {
 	if dest == nil {
 		dest = nullDest
 	}
-	s.selects = append(s.selects, sel{col, as, dest, false})
+	s.selects = append(s.selects, sel{name{col, ""}, dest, false})
+	s.last = lastWasColumnName
 	return s
 }
 
@@ -61,7 +58,24 @@ func (s SelectStatement) MapSQL(col string, dest interface{}) SelectStatement {
 	if dest == nil {
 		dest = nullDest
 	}
-	s.selects = append(s.selects, sel{col, "", dest, true})
+	s.selects = append(s.selects, sel{name{col, ""}, dest, true})
+	s.last = lastWasColumnName
+	return s
+}
+
+// As modifies the preceding table or column name by setting an alias.
+func (s SelectStatement) As(alias string) SelectStatement {
+	switch s.last {
+	case lastWasTableName:
+		s.table = name{s.table.name, alias}
+	case lastWasColumnName:
+		i := len(s.selects) - 1
+		sel := s.selects[i]
+		s.selects = s.selects[:i]
+		sel.col.alias = alias
+		s.selects = append(s.selects, sel)
+	}
+	s.last = lastWasUnknown
 	return s
 }
 
@@ -71,11 +85,17 @@ func (s SelectStatement) Join(sql string, args ...interface{}) SelectStatement {
 	return s
 }
 
-// Where returns a new statement with condition 'cond'. Multiple conditions
-// are combined with AND.
+// Where returns a new statement with condition on a specified column.
+// Multiple conditions are combined with AND.
 func (s SelectStatement) Where(col, cond string, args ...interface{}) SelectStatement {
 	s.wheres = append(s.wheres, where{col, cond, args})
 	return s
+}
+
+// WhereEq returns a new statement with condition 'col = ?'.
+// Multiple conditions are combined with AND.
+func (s SelectStatement) WhereEq(col string, args ...interface{}) SelectStatement {
+	return s.Where(col, "=?", args...)
 }
 
 // Limit returns a new statement with the limit set to 'limit'.
@@ -125,16 +145,10 @@ func (s SelectStatement) Build() (query string, args []interface{}, dest []inter
 
 	if len(s.selects) > 0 {
 		for _, sel := range s.selects {
-			col := sel.col
-			as := sel.as
-			if !sel.raw {
-				col = s.dbms.Dialect.Quote(col)
-				as = s.dbms.Dialect.Quote(as)
-			}
-			if sel.as != "" {
-				cols = append(cols, col + " AS " + as)
+			if sel.raw {
+				cols = append(cols, sel.col.String())
 			} else {
-				cols = append(cols, col)
+				cols = append(cols, sel.col.Quoted(s.dbms.Dialect))
 			}
 			if sel.dest == nil {
 				dest = append(dest, &nullDest)
@@ -147,7 +161,9 @@ func (s SelectStatement) Build() (query string, args []interface{}, dest []inter
 		dest = append(dest, &nullDest)
 	}
 
-	query = "SELECT " + strings.Join(cols, ", ") + " FROM " + s.dbms.Dialect.Quote(s.table)
+	query = fmt.Sprintf("SELECT %s FROM %s",
+		strings.Join(cols, ", "),
+		s.table.Quoted(s.dbms.Dialect))
 
 	for _, join := range s.joins {
 		sql := join.sql
