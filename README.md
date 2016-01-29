@@ -1,17 +1,14 @@
 sqlbuilder
 ==========
 
-[![Travis CI status](https://api.travis-ci.org/thcyron/sqlbuilder.svg)](https://travis-ci.org/thcyron/sqlbuilder)
+[![Travis CI status](https://api.travis-ci.org/rickb777/sqlbuilder.svg)](https://travis-ci.org/rickb777/sqlbuilder)
 
-`sqlbuilder` is a Go library for building SQL queries.
-
-The current version is [2.0.0](https://github.com/thcyron/sqlbuilder/tree/v2.0.0/).
-`sqlbuilder` follows [Semantic Versioning](http://semver.org/).
+`sqlbuilder` is a Go library for constructing SQL queries using a fluent API.
 
 Installation
 ------------
 
-    go get github.com/thcyron/sqlbuilder
+    go get github.com/rickb777/sqlbuilder
 
 Examples
 --------
@@ -106,9 +103,9 @@ func init() {
 Documentation
 -------------
 
-Documentation is available at [Godoc](http://godoc.org/github.com/thcyron/sqlbuilder).
+Documentation is available at [Godoc](http://godoc.org/github.com/rickb777/sqlbuilder).
 
-License
+Licence
 -------
 
-`sqlbuilder` is licensed under the MIT license.
+`sqlbuilder` is licensed under the MIT License.
