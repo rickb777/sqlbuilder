@@ -1,8 +1,8 @@
 package sqlbuilder
 
 import (
-	"strings"
 	"fmt"
+	"strings"
 )
 
 type insertSet struct {
@@ -37,12 +37,12 @@ func (s InsertStatement) As(alias string) InsertStatement {
 	switch s.last {
 	case lastWasTableName:
 		s.table = name{s.table.name, alias}
-	//case lastWasColumnName:
-	//	i := len(s.selects) - 1
-	//	sel := s.selects[i]
-	//	s.selects = s.selects[:i]
-	//	sel.col.alias = alias
-	//	s.selects = append(s.selects, sel)
+		//case lastWasColumnName:
+		//	i := len(s.selects) - 1
+		//	sel := s.selects[i]
+		//	s.selects = s.selects[:i]
+		//	sel.col.alias = alias
+		//	s.selects = append(s.selects, sel)
 	}
 	s.last = lastWasUnknown
 	return s

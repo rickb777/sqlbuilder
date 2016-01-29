@@ -7,7 +7,7 @@ type where struct {
 	args     []interface{}
 }
 
-func quoteStrings(s []string, dialect Dialect) [] string {
+func quoteStrings(s []string, dialect Dialect) []string {
 	var quoted []string
 	for _, o := range s {
 		quoted = append(quoted, dialect.Quote(o))

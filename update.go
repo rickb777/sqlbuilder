@@ -64,7 +64,7 @@ func (s UpdateStatement) Build() (query string, args []interface{}) {
 			idx++
 			args = append(args, set.arg)
 		}
-		sets = append(sets, s.dbms.Dialect.Quote(set.col) + " = " + arg)
+		sets = append(sets, s.dbms.Dialect.Quote(set.col)+" = "+arg)
 	}
 	query += strings.Join(sets, ", ")
 

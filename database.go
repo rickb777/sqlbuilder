@@ -32,7 +32,6 @@ func (dbms DBMS) Delete() DeleteStatement {
 	return DeleteStatement{dbms: dbms}
 }
 
-
 // DefaultDBMS is the DBMS used by the package-level Select,
 // Insert, Update and Delete functions.
 var DefaultDBMS = MySQL

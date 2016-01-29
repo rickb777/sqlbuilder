@@ -1,9 +1,9 @@
 package sqlbuilder
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
-	"fmt"
 )
 
 var nullDest interface{}

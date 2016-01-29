@@ -24,11 +24,11 @@ func (dialect MySQLDialect) Placeholder(idx int) string {
 }
 
 func (dialect PostgresDialect) Placeholder(idx int) string {
-	return "$" + strconv.Itoa(idx + 1)
+	return "$" + strconv.Itoa(idx+1)
 }
 
 func quote(s, quote string) string {
-	return quote + strings.Replace(s, quote, "\\" + quote, -1) + quote
+	return quote + strings.Replace(s, quote, "\\"+quote, -1) + quote
 }
 
 func (dialect MySQLDialect) Quote(s string) string {
