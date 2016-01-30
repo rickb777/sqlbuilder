@@ -38,10 +38,10 @@ func TestSimpleSelectWithOrderAndLock(t *testing.T) {
 	}
 }
 
-func TestSimpleSelectWithLimitOffset(t *testing.T) {
+func TestSimpleSelectDistinctWithLimitOffset(t *testing.T) {
 	c := customer{}
 
-	query, _, dest := MySQL.Select().
+	query, _, dest := MySQL.Select().Distinct().
 		From("customers").
 		Map("id", &c.ID).
 		Map("name", &c.Name).
@@ -51,7 +51,7 @@ func TestSimpleSelectWithLimitOffset(t *testing.T) {
 		Offset(10).
 		Build()
 
-	expectedQuery := "SELECT id, name, phone, age\n FROM customers\n LIMIT 5\n OFFSET 10"
+	expectedQuery := "SELECT DISTINCT id, name, phone, age\n FROM customers\n LIMIT 5\n OFFSET 10"
 	if query != expectedQuery {
 		t.Errorf("bad query: %s", query)
 	}
@@ -78,7 +78,7 @@ func TestSimpleSelectWithJoins(t *testing.T) {
 	expectedQuery := "SELECT id, name, phone, age\n" +
 		" FROM customers AS c\n" +
 		" INNER JOIN orders AS o ON o.customer_id = c.id\n" +
-		" LEFT JOIN items USING id"
+		" LEFT JOIN items USING (id)"
 	if query != expectedQuery {
 		t.Errorf("bad query: |%s|", query)
 	}

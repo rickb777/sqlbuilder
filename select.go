@@ -10,35 +10,34 @@ var nullDest interface{}
 
 // SelectStatement represents a SELECT statement.
 type SelectStatement struct {
-	dbms    DBMS
-	last    lastWas
-	table   name
-	selects []sel
-	joinNat string
-	joinOp  string
-	joinTbl name
-	joins   []join
-	wheres  []where
-	lock    bool
-	limit   *int
-	offset  *int
-	order   []string
-	group   string
-	having  string
+	dbms     DBMS
+	distinct string
+	last     lastWas
+	table    name
+	columns  []column
+	joinNat  string
+	joinOp   string
+	joinTbl  name
+	joins    []join
+	wheres   []where
+	lock     bool
+	limit    *int
+	offset   *int
+	order    []string
+	group    string
+	having   string
 }
 
-type sel struct {
+type column struct {
 	col  name
 	dest interface{}
 	raw  bool
 }
 
-type join struct {
-	op       string
-	table    name
-	onL, onR name
-	using    []string
-	dialect  Dialect
+// Distinct modifies the select to remove duplicates from the results.
+func (s SelectStatement) Distinct() SelectStatement {
+	s.distinct = "DISTINCT "
+	return s
 }
 
 // From returns a new statement with the table to select from set to 'table'.
@@ -54,7 +53,7 @@ func (s SelectStatement) Map(col string, dest interface{}) SelectStatement {
 	if dest == nil {
 		dest = nullDest
 	}
-	s.selects = append(s.selects, sel{name{col, ""}, dest, false})
+	s.columns = append(s.columns, column{name{col, ""}, dest, false})
 	s.last = lastWasColumnName
 	return s
 }
@@ -64,7 +63,7 @@ func (s SelectStatement) MapSQL(col string, dest interface{}) SelectStatement {
 	if dest == nil {
 		dest = nullDest
 	}
-	s.selects = append(s.selects, sel{name{col, ""}, dest, true})
+	s.columns = append(s.columns, column{name{col, ""}, dest, true})
 	s.last = lastWasColumnName
 	return s
 }
@@ -77,72 +76,13 @@ func (s SelectStatement) As(alias string) SelectStatement {
 	case lastWasJoinTableName:
 		s.joinTbl = name{s.joinTbl.name, alias}
 	case lastWasColumnName:
-		i := len(s.selects) - 1
-		sel := s.selects[i]
-		s.selects = s.selects[:i]
+		i := len(s.columns) - 1
+		sel := s.columns[i]
+		s.columns = s.columns[:i]
 		sel.col.alias = alias
-		s.selects = append(s.selects, sel)
+		s.columns = append(s.columns, sel)
 	}
 	s.last = lastWasUnknown
-	return s
-}
-
-// Natural precedes Join when required.
-func (s SelectStatement) Natural() SelectStatement {
-	s.joinNat = "NATURAL "
-	return s
-}
-
-// Left precedes Join when required.
-func (s SelectStatement) Left() SelectStatement {
-	s.joinOp = "LEFT "
-	return s
-}
-
-// LeftOuter precedes Join when required.
-func (s SelectStatement) LeftOuter() SelectStatement {
-	s.joinOp = "LEFT OUTER "
-	return s
-}
-
-// Inner precedes Join when required.
-func (s SelectStatement) Inner() SelectStatement {
-	s.joinOp = "INNER "
-	return s
-}
-
-// Cross precedes Join when required.
-func (s SelectStatement) Cross() SelectStatement {
-	s.joinOp = "CROSS "
-	return s
-}
-
-// Join sets the table name for the current join.
-func (s SelectStatement) Join(table string) SelectStatement {
-	s.joinTbl = name{table, ""}
-	s.last = lastWasJoinTableName
-	return s
-}
-
-// On completes a JOIN clause with the necessary constraint
-func (s SelectStatement) On(onL, onR string) SelectStatement {
-	op := s.joinNat + s.joinOp + "JOIN"
-	j := join{op, s.joinTbl, splitAsName(onL), splitAsName(onR), nil, s.dbms.Dialect}
-	s.joins = append(s.joins, j)
-	s.joinNat = ""
-	s.joinOp = ""
-	s.joinTbl = name{}
-	return s
-}
-
-// Using completes a JOIN clause with the necessary columns
-func (s SelectStatement) Using(col ...string) SelectStatement {
-	op := s.joinNat + s.joinOp + "JOIN"
-	j := join{op, s.joinTbl, name{}, name{}, col, s.dbms.Dialect}
-	s.joins = append(s.joins, j)
-	s.joinNat = ""
-	s.joinOp = ""
-	s.joinTbl = name{}
 	return s
 }
 
@@ -207,8 +147,8 @@ func (s SelectStatement) Build() (query string, args []interface{}, dest []inter
 	var cols []string
 	idx := 0
 
-	if len(s.selects) > 0 {
-		for _, sel := range s.selects {
+	if len(s.columns) > 0 {
+		for _, sel := range s.columns {
 			if sel.raw {
 				cols = append(cols, sel.col.String())
 			} else {
@@ -225,7 +165,8 @@ func (s SelectStatement) Build() (query string, args []interface{}, dest []inter
 		dest = append(dest, &nullDest)
 	}
 
-	query = fmt.Sprintf("SELECT %s\n FROM %s",
+	query = fmt.Sprintf("SELECT %s%s\n FROM %s",
+		s.distinct,
 		strings.Join(cols, ", "),
 		s.table.QuotedAs(s.dbms.Dialect))
 
@@ -263,16 +204,4 @@ func (s SelectStatement) Build() (query string, args []interface{}, dest []inter
 	}
 
 	return
-}
-
-func (j join) String() string {
-	tbl := j.table.QuotedAs(j.dialect)
-	if len(j.using) > 0 {
-		cols := strings.Join(quoteStrings(j.using, j.dialect), ", ")
-		return fmt.Sprintf("\n %s %s USING %s", j.op, tbl, cols)
-	} else {
-		onL := j.onL.QuotedDot(j.dialect)
-		onR := j.onR.QuotedDot(j.dialect)
-		return fmt.Sprintf("\n %s %s ON %s = %s", j.op, tbl, onL, onR)
-	}
 }
