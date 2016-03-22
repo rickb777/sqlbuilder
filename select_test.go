@@ -150,3 +150,29 @@ func TestSelectWithWherePostgres(t *testing.T) {
 		t.Errorf("bad args: %v", args)
 	}
 }
+
+func TestSelectWithInClauseUsingSlice(t *testing.T) {
+	c := customer{}
+
+	input := []int{4, 5, 6}
+	query, args, _ := Postgres.Select().
+		From("customers").
+		Map("id", &c.ID).
+		Map("name", &c.Name).
+		Where("name", "IS NOT NULL").
+		Where("id", "in (?,?,?)", input).
+		Where("age", "BETWEEN ? AND ?", 10, 20).
+		Build()
+
+	expectedQuery := `SELECT "id", "name"
+ FROM "customers"
+ WHERE ("name" IS NOT NULL) AND ("id" in ($1,$2,$3)) AND ("age" BETWEEN $4 AND $5)`
+	if query != expectedQuery {
+		t.Errorf("bad query: |%s|", query)
+	}
+
+	expectedArgs := []interface{}{4, 5, 6, 10, 20}
+	if !reflect.DeepEqual(args, expectedArgs) {
+		t.Errorf("bad args: %v", args)
+	}
+}

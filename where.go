@@ -1,6 +1,9 @@
 package sqlbuilder
 
-import "strings"
+import (
+	"reflect"
+	"strings"
+)
 
 type where struct {
 	col, sql string
@@ -22,10 +25,22 @@ func buildWhereClause(query string, args []interface{}, idx int, wheres []where,
 		for _, where := range wheres {
 			sql := "(" + dialect.Quote(where.col) + " " + where.sql + ")"
 			for _, arg := range where.args {
-				p := dialect.Placeholder(idx)
-				idx++
-				sql = strings.Replace(sql, "?", p, 1)
-				args = append(args, arg)
+				value := reflect.ValueOf(arg)
+				switch value.Kind() {
+				case reflect.Array, reflect.Slice:
+					for j := 0; j < value.Len(); j++ {
+						p := dialect.Placeholder(idx)
+						idx++
+						sql = strings.Replace(sql, "?", p, 1)
+						args = append(args, value.Index(j).Interface())
+					}
+
+				default:
+					p := dialect.Placeholder(idx)
+					idx++
+					sql = strings.Replace(sql, "?", p, 1)
+					args = append(args, arg)
+				}
 			}
 			sqls = append(sqls, sql)
 		}
