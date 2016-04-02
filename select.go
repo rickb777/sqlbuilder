@@ -77,10 +77,7 @@ func (s SelectStatement) As(alias string) SelectStatement {
 		s.joinTbl = name{s.joinTbl.name, alias}
 	case lastWasColumnName:
 		i := len(s.columns) - 1
-		sel := s.columns[i]
-		s.columns = s.columns[:i]
-		sel.col.alias = alias
-		s.columns = append(s.columns, sel)
+		s.columns[i].col.alias = alias
 	}
 	s.last = lastWasUnknown
 	return s
@@ -116,14 +113,14 @@ func (s SelectStatement) Offset(offset int) SelectStatement {
 
 // OrderBy returns a new statement with ordering 'order', which may be a list of column names.
 // Only the last OrderBy() is used.
-func (s SelectStatement) OrderBy(order ...string) SelectStatement {
-	s.order = order
+func (s SelectStatement) OrderBy(column ...string) SelectStatement {
+	s.order = append(s.order, column...)
 	return s
 }
 
-// Group returns a new statement with grouping 'group'.
-// Only the last Group() is used.
-func (s SelectStatement) Group(group string) SelectStatement {
+// GroupBy returns a new statement with grouping 'group'.
+// Only the last GroupBy() is used.
+func (s SelectStatement) GroupBy(group string) SelectStatement {
 	s.group = group
 	return s
 }
