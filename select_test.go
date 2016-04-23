@@ -38,6 +38,30 @@ func TestSimpleSelectWithOrderAndLock(t *testing.T) {
 	}
 }
 
+func TestSimpleSelectWithMixedOrder(t *testing.T) {
+	c := customer{}
+
+	query, _, dest := MySQLQuoted.Select().
+		From("customers").
+		Map("id", &c.ID).
+		Map("name", &c.Name).
+		Map("phone", &c.Phone).
+		Map("age", &c.Age).
+		OrderBy("name").OrderBy("age").Desc().OrderBy("phone").
+		Build()
+
+	expectedQuery := "SELECT `id`, `name`, `phone`, `age`\n FROM `customers`\n" +
+		" ORDER BY `name`, `age` DESC, `phone`"
+	if query != expectedQuery {
+		t.Errorf("bad query: %s", query)
+	}
+
+	expectedDest := []interface{}{&c.ID, &c.Name, &c.Phone, &c.Age}
+	if !reflect.DeepEqual(dest, expectedDest) {
+		t.Errorf("bad dest: %v", dest)
+	}
+}
+
 func TestSimpleSelectDistinctWithLimitOffset(t *testing.T) {
 	c := customer{}
 
@@ -115,7 +139,7 @@ func TestSelectWithWhereMySQL(t *testing.T) {
 
 func TestSelectWithGroupMySQL(t *testing.T) {
 	var count uint
-	query, _, _ := MySQL.Select().From("customers").MapSQL("COUNT(*)", &count).Group("city").Build()
+	query, _, _ := MySQL.Select().From("customers").MapSQL("COUNT(*)", &count).GroupBy("city").Build()
 	expectedQuery := "SELECT COUNT(*)\n FROM customers\n GROUP BY city"
 	if query != expectedQuery {
 		t.Errorf("bad query: %s", query)

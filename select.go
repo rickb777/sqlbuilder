@@ -23,7 +23,7 @@ type SelectStatement struct {
 	lock     bool
 	limit    *int
 	offset   *int
-	order    []string
+	order    []order
 	group    string
 	having   string
 }
@@ -32,6 +32,19 @@ type column struct {
 	col  name
 	dest interface{}
 	raw  bool
+}
+
+type order struct {
+	col  string
+	desc bool
+}
+
+func (o order) build(dialect Dialect) string {
+	q := dialect.Quote(o.col)
+	if o.desc {
+		return q + " DESC"
+	}
+	return q
 }
 
 // Distinct modifies the select to remove duplicates from the results.
@@ -112,9 +125,19 @@ func (s SelectStatement) Offset(offset int) SelectStatement {
 }
 
 // OrderBy returns a new statement with ordering 'order', which may be a list of column names.
-// Only the last OrderBy() is used.
+// Multiple OrderBy() calls can be used.
 func (s SelectStatement) OrderBy(column ...string) SelectStatement {
-	s.order = append(s.order, column...)
+	for _, c := range column {
+		s.order = append(s.order, order{c, false})
+	}
+	return s
+}
+
+// Desc reverses the sort order of the last ordering column specified with OrderBy(). Only
+// the last column is reversed; any earlier ones rmain unchanged.
+// This panics if there hasn't been an OrderBy yet.
+func (s SelectStatement) Desc() SelectStatement {
+	s.order[len(s.order)-1].desc = true
 	return s
 }
 
@@ -176,7 +199,10 @@ func (s SelectStatement) Build() (query string, args []interface{}, dest []inter
 	}
 
 	if len(s.order) > 0 {
-		quoted := quoteStrings(s.order, s.dbms.Dialect)
+		quoted := make([]string, len(s.order))
+		for i, o := range s.order {
+			quoted[i] = o.build(s.dbms.Dialect)
+		}
 		query += "\n ORDER BY " + strings.Join(quoted, ", ")
 	}
 
