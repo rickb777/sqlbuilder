@@ -60,6 +60,16 @@ func (s SelectStatement) From(table string) SelectStatement {
 	return s
 }
 
+// Columns returns a new statement with all columns 'col' selected (but not scanned).
+func (s SelectStatement) Columns(col ...string) SelectStatement {
+	dest := nullDest
+	for _, c := range col {
+		s.columns = append(s.columns, column{name{c, ""}, dest, false})
+	}
+	s.last = lastWasColumnName
+	return s
+}
+
 // Map returns a new statement with column 'col' selected and scanned
 // into 'dest'. 'dest' may be nil if the value should not be scanned.
 func (s SelectStatement) Map(col string, dest interface{}) SelectStatement {
@@ -113,12 +123,14 @@ func (s SelectStatement) WhereEq(col string, args ...interface{}) SelectStatemen
 }
 
 // Limit returns a new statement with the limit set to 'limit'.
+// This works with MySQL and SqLite, but is unlikely to work with other dbms.
 func (s SelectStatement) Limit(limit int) SelectStatement {
 	s.limit = &limit
 	return s
 }
 
 // Offset returns a new statement with the offset set to 'offset'.
+// This works with MySQL and SqLite, but is unlikely to work with other dbms.
 func (s SelectStatement) Offset(offset int) SelectStatement {
 	s.offset = &offset
 	return s

@@ -12,6 +12,18 @@ type customer struct {
 	Age   int
 }
 
+func TestSimpleSelectWithColumns(t *testing.T) {
+	query, _, _ := MySQLQuoted.Select().
+		From("customers").
+		Columns("id", "name", "phone", "age").
+		Build()
+
+	expectedQuery := "SELECT `id`, `name`, `phone`, `age`\n FROM `customers`"
+	if query != expectedQuery {
+		t.Errorf("bad query: %s", query)
+	}
+}
+
 func TestSimpleSelectWithOrderAndLock(t *testing.T) {
 	c := customer{}
 
