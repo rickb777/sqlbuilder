@@ -5,6 +5,11 @@ import (
 	"strings"
 )
 
+// Insert returns a new INSERT statement with the default dialect.
+func Insert() InsertStatement {
+	return InsertStatement{dialect: DefaultDialect}
+}
+
 type insertSet struct {
 	col string
 	arg interface{}
@@ -18,11 +23,17 @@ type insertRet struct {
 
 // InsertStatement represents an INSERT statement.
 type InsertStatement struct {
-	dbms  DBMS
-	last  lastWas
-	table name
-	sets  []insertSet
-	rets  []insertRet
+	dialect Dialect
+	last    lastWas
+	table   name
+	sets    []insertSet
+	rets    []insertRet
+}
+
+// Dialect returns a new statement with dialect set to 'dialect'.
+func (s InsertStatement) Dialect(dialect Dialect) InsertStatement {
+	s.dialect = dialect
+	return s
 }
 
 // Into returns a new statement with the table to insert into set to 'table'.
@@ -56,13 +67,7 @@ func (s InsertStatement) SetSQL(col, sql string) InsertStatement {
 
 // Return returns a new statement with a RETURNING clause.
 func (s InsertStatement) Return(col string, dest interface{}) InsertStatement {
-	s.rets = append(s.rets, insertRet{sql: s.dbms.Dialect.Quote(col), dest: dest})
-	return s
-}
-
-// ReturnSQL is Return without quoting the argument.
-func (s InsertStatement) ReturnSQL(sql string, dest interface{}) InsertStatement {
-	s.rets = append(s.rets, insertRet{sql: sql, dest: dest})
+	s.rets = append(s.rets, insertRet{sql: col, dest: dest})
 	return s
 }
 
@@ -72,13 +77,13 @@ func (s InsertStatement) Build() (query string, args []interface{}, dest []inter
 	idx := 0
 
 	for _, set := range s.sets {
-		cols = append(cols, s.dbms.Dialect.Quote(set.col))
+		cols = append(cols, set.col)
 
 		if set.raw {
 			vals = append(vals, set.arg.(string))
 		} else {
 			args = append(args, set.arg)
-			vals = append(vals, s.dbms.Dialect.Placeholder(idx))
+			vals = append(vals, s.dialect.Placeholder(idx))
 			idx++
 		}
 	}
@@ -94,7 +99,7 @@ func (s InsertStatement) Build() (query string, args []interface{}, dest []inter
 	}
 
 	query = fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)%s",
-		s.table.QuotedAs(s.dbms.Dialect),
+		s.table,
 		strings.Join(cols, ", "),
 		strings.Join(vals, ", "),
 		returning)

@@ -6,13 +6,24 @@ type deleteSet struct {
 	raw bool
 }
 
+// Delete returns a new DELETE statement with the default dialect.
+func Delete() DeleteStatement {
+	return DeleteStatement{dialect: DefaultDialect}
+}
+
 // DeleteStatement represents an DELETE statement.
 type DeleteStatement struct {
-	dbms   DBMS
-	last   lastWas
-	table  name
-	wheres []where
-	args   []interface{}
+	dialect Dialect
+	last    lastWas
+	table   name
+	wheres  []where
+	args    []interface{}
+}
+
+// Dialect returns a new statement with dialect set to 'dialect'.
+func (s DeleteStatement) Dialect(dialect Dialect) DeleteStatement {
+	s.dialect = dialect
+	return s
 }
 
 // From returns a new statement with the table to delete set to 'table'.
@@ -61,9 +72,9 @@ func (s DeleteStatement) Build() (query string, args []interface{}) {
 		panic("sqlbuilder: DELETE with no where clauses")
 	}
 
-	query = "DELETE FROM " + s.table.QuotedAs(s.dbms.Dialect)
+	query = "DELETE FROM " + s.table.String()
 
-	query, args, _ = buildWhereClause(query, args, 0, s.wheres, s.dbms.Dialect)
+	query, args, _ = buildWhereClause(query, args, 0, s.wheres, s.dialect)
 
 	return
 }

@@ -35,11 +35,10 @@ func (n name) QuotedDot(dialect Dialect) string {
 }
 
 func (n name) quotedX(dialect Dialect, sep string) string {
-	qn := dialect.Quote(n.name)
 	if n.alias == "" {
-		return qn
+		return n.name
 	}
-	return qn + sep + dialect.Quote(n.alias)
+	return n.name + sep + n.alias
 }
 
 func (n name) String() string {

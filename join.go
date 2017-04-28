@@ -78,7 +78,7 @@ func (s SelectStatement) Join(table string) SelectStatement {
 // When required, another join can immediately follow this.
 func (s SelectStatement) On(onL, onR string) SelectStatement {
 	op := s.joinNat + s.joinOp + "JOIN"
-	j := join{op, s.joinTbl, splitAsName(onL), splitAsName(onR), nil, s.dbms.Dialect}
+	j := join{op, s.joinTbl, splitAsName(onL), splitAsName(onR), nil, s.dialect}
 	s.joins = append(s.joins, j)
 	s.joinNat = ""
 	s.joinOp = ""
@@ -90,7 +90,7 @@ func (s SelectStatement) On(onL, onR string) SelectStatement {
 // When required, another join can immediately follow this.
 func (s SelectStatement) Using(col ...string) SelectStatement {
 	op := s.joinNat + s.joinOp + "JOIN"
-	j := join{op, s.joinTbl, name{}, name{}, col, s.dbms.Dialect}
+	j := join{op, s.joinTbl, name{}, name{}, col, s.dialect}
 	s.joins = append(s.joins, j)
 	s.joinNat = ""
 	s.joinOp = ""
@@ -101,7 +101,7 @@ func (s SelectStatement) Using(col ...string) SelectStatement {
 func (j join) String() string {
 	tbl := j.table.QuotedAs(j.dialect)
 	if len(j.using) > 0 {
-		cols := strings.Join(quoteStrings(j.using, j.dialect), ", ")
+		cols := strings.Join(j.using, ", ")
 		return fmt.Sprintf("\n %s %s USING (%s)", j.op, tbl, cols)
 	} else {
 		onL := j.onL.QuotedDot(j.dialect)

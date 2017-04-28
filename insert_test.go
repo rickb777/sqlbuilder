@@ -6,16 +6,17 @@ import (
 )
 
 func TestInsertMySQL(t *testing.T) {
-	query, args, _ := MySQLQuoted.Insert().
+	query, args, _ := Insert().
+		Dialect(MySQL).
 		Into("customers").
 		Set("name", "John").
 		Set("phone", "555").
 		SetSQL("created_at", "NOW()").
 		Build()
 
-	expectedQuery := "INSERT INTO `customers` (`name`, `phone`, `created_at`) VALUES (?, ?, NOW())"
+	expectedQuery := "INSERT INTO customers (name, phone, created_at) VALUES (?, ?, NOW())"
 	if query != expectedQuery {
-		t.Errorf("bad query: %s", query)
+		t.Errorf("bad query: %q", query)
 	}
 
 	expectedArgs := []interface{}{"John", "555"}
@@ -25,16 +26,17 @@ func TestInsertMySQL(t *testing.T) {
 }
 
 func TestInsertPostgres(t *testing.T) {
-	query, args, _ := Postgres.Insert().
+	query, args, _ := Insert().
+		Dialect(Postgres).
 		Into("customers").
 		Set("name", "John").
 		Set("phone", "555").
 		SetSQL("created_at", "NOW()").
 		Build()
 
-	expectedQuery := `INSERT INTO "customers" ("name", "phone", "created_at") VALUES ($1, $2, NOW())`
+	expectedQuery := `INSERT INTO customers (name, phone, created_at) VALUES ($1, $2, NOW())`
 	if query != expectedQuery {
-		t.Errorf("bad query: %s", query)
+		t.Errorf("bad query: %q", query)
 	}
 
 	expectedArgs := []interface{}{"John", "555"}
@@ -46,18 +48,19 @@ func TestInsertPostgres(t *testing.T) {
 func TestInsertReturningPostgres(t *testing.T) {
 	var id, one uint
 
-	query, args, dest := Postgres.Insert().
+	query, args, dest := Insert().
+		Dialect(Postgres).
 		Into("customers").
 		Set("name", "John").
 		Set("phone", "555").
 		SetSQL("created_at", "NOW()").
 		Return("id", &id).
-		ReturnSQL("1", &one).
+		Return("1", &one).
 		Build()
 
-	expectedQuery := `INSERT INTO "customers" ("name", "phone", "created_at") VALUES ($1, $2, NOW()) RETURNING "id", 1`
+	expectedQuery := `INSERT INTO customers (name, phone, created_at) VALUES ($1, $2, NOW()) RETURNING id, 1`
 	if query != expectedQuery {
-		t.Errorf("bad query: %s", query)
+		t.Errorf("bad query: %q", query)
 	}
 
 	expectedArgs := []interface{}{"John", "555"}

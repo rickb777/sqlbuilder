@@ -13,21 +13,49 @@ type customer struct {
 }
 
 func TestSimpleSelectWithColumns(t *testing.T) {
-	query, _, _ := MySQLQuoted.Select().
+	query, _, _ := Select().
+		Dialect(MySQL).
 		From("customers").
 		Columns("id", "name", "phone", "age").
 		Build()
 
-	expectedQuery := "SELECT `id`, `name`, `phone`, `age`\n FROM `customers`"
+	expectedQuery := "SELECT id, name, phone, age\n FROM customers"
 	if query != expectedQuery {
-		t.Errorf("bad query: %s", query)
+		t.Errorf("bad query: %q", query)
+	}
+}
+
+func TestSimpleSelectWithStarColumns(t *testing.T) {
+	query, _, _ := Select().
+		Dialect(MySQL).
+		From("customers").
+		Columns("*").
+		Build()
+
+	expectedQuery := "SELECT *\n FROM customers"
+	if query != expectedQuery {
+		t.Errorf("bad query: %q", query)
+	}
+}
+
+func TestSimpleSelectWithStarMap(t *testing.T) {
+	query, _, _ := Select().
+		Dialect(MySQL).
+		From("customers").
+		Map("*", nil).
+		Build()
+
+	expectedQuery := "SELECT *\n FROM customers"
+	if query != expectedQuery {
+		t.Errorf("bad query: %q", query)
 	}
 }
 
 func TestSimpleSelectWithOrderAndLock(t *testing.T) {
 	c := customer{}
 
-	query, _, dest := MySQLQuoted.Select().
+	query, _, dest := Select().
+		Dialect(MySQL).
 		From("customers").
 		Map("id", &c.ID).
 		Map("name", &c.Name).
@@ -38,10 +66,10 @@ func TestSimpleSelectWithOrderAndLock(t *testing.T) {
 		Lock().
 		Build()
 
-	expectedQuery := "SELECT `id`, `name`, `phone`, `age`, `1+1` AS `two`\n FROM `customers`\n" +
-		" ORDER BY `name`, `age`\n FOR UPDATE"
+	expectedQuery := "SELECT id, name, phone, age, 1+1 AS two\n FROM customers\n" +
+		" ORDER BY name, age\n FOR UPDATE"
 	if query != expectedQuery {
-		t.Errorf("bad query: %s", query)
+		t.Errorf("bad query: %q", query)
 	}
 
 	expectedDest := []interface{}{&c.ID, &c.Name, &c.Phone, &c.Age, &nullDest}
@@ -53,7 +81,8 @@ func TestSimpleSelectWithOrderAndLock(t *testing.T) {
 func TestSimpleSelectWithMixedOrder(t *testing.T) {
 	c := customer{}
 
-	query, _, dest := MySQLQuoted.Select().
+	query, _, dest := Select().
+		Dialect(MySQL).
 		From("customers").
 		Map("id", &c.ID).
 		Map("name", &c.Name).
@@ -62,10 +91,10 @@ func TestSimpleSelectWithMixedOrder(t *testing.T) {
 		OrderBy("name").OrderBy("age").Desc().OrderBy("phone").
 		Build()
 
-	expectedQuery := "SELECT `id`, `name`, `phone`, `age`\n FROM `customers`\n" +
-		" ORDER BY `name`, `age` DESC, `phone`"
+	expectedQuery := "SELECT id, name, phone, age\n FROM customers\n" +
+		" ORDER BY name, age DESC, phone"
 	if query != expectedQuery {
-		t.Errorf("bad query: %s", query)
+		t.Errorf("bad query: %q", query)
 	}
 
 	expectedDest := []interface{}{&c.ID, &c.Name, &c.Phone, &c.Age}
@@ -77,7 +106,8 @@ func TestSimpleSelectWithMixedOrder(t *testing.T) {
 func TestSimpleSelectDistinctWithLimitOffset(t *testing.T) {
 	c := customer{}
 
-	query, _, dest := MySQL.Select().Distinct().
+	query, _, dest := Select().
+		Dialect(MySQL).Distinct().
 		From("customers").
 		Map("id", &c.ID).
 		Map("name", &c.Name).
@@ -89,7 +119,7 @@ func TestSimpleSelectDistinctWithLimitOffset(t *testing.T) {
 
 	expectedQuery := "SELECT DISTINCT id, name, phone, age\n FROM customers\n LIMIT 5\n OFFSET 10"
 	if query != expectedQuery {
-		t.Errorf("bad query: %s", query)
+		t.Errorf("bad query: %q", query)
 	}
 
 	expectedDest := []interface{}{&c.ID, &c.Name, &c.Phone, &c.Age}
@@ -101,7 +131,8 @@ func TestSimpleSelectDistinctWithLimitOffset(t *testing.T) {
 func TestSimpleSelectWithJoins(t *testing.T) {
 	c := customer{}
 
-	query, _, _ := MySQL.Select().
+	query, _, _ := Select().
+		Dialect(MySQL).
 		From("customers").As("c").
 		Map("id", &c.ID).
 		Map("name", &c.Name).
@@ -116,14 +147,15 @@ func TestSimpleSelectWithJoins(t *testing.T) {
 		" INNER JOIN orders AS o ON o.customer_id = c.id\n" +
 		" LEFT JOIN items USING (id)"
 	if query != expectedQuery {
-		t.Errorf("bad query: |%s|", query)
+		t.Errorf("bad query: %q", query)
 	}
 }
 
 func TestSelectWithWhereMySQL(t *testing.T) {
 	c := customer{}
 
-	query, args, _ := MySQLQuoted.Select().
+	query, args, _ := Select().
+		Dialect(MySQL).
 		From("customers").As("c").
 		Map("c.id", &c.ID).
 		Map("c.name", &c.Name).
@@ -135,12 +167,12 @@ func TestSelectWithWhereMySQL(t *testing.T) {
 		Where("c.age", "BETWEEN ? AND ?", 10, 20).
 		Build()
 
-	expectedQuery := "SELECT `c.id`, `c.name`, `c.telephone` AS `phone`, `c.age`\n" +
-		" FROM `customers` AS `c`\n" +
-		" CROSS JOIN `orders` AS `o` ON `o`.`customer_id` = `c`.`id`\n" +
-		" WHERE (`c.id` = ?) AND (`c.name` IS NOT NULL) AND (`c.age` BETWEEN ? AND ?)"
+	expectedQuery := "SELECT c.id, c.name, c.telephone AS phone, c.age\n" +
+		" FROM customers AS c\n" +
+		" CROSS JOIN orders AS o ON o.customer_id = c.id\n" +
+		" WHERE (c.id = ?) AND (c.name IS NOT NULL) AND (c.age BETWEEN ? AND ?)"
 	if query != expectedQuery {
-		t.Errorf("bad query: %s", query)
+		t.Errorf("bad query: %q", query)
 	}
 
 	expectedArgs := []interface{}{9, 10, 20}
@@ -151,17 +183,19 @@ func TestSelectWithWhereMySQL(t *testing.T) {
 
 func TestSelectWithGroupMySQL(t *testing.T) {
 	var count uint
-	query, _, _ := MySQL.Select().From("customers").MapSQL("COUNT(*)", &count).GroupBy("city").Build()
+	query, _, _ := Select().
+		Dialect(MySQL).From("customers").Map("COUNT(*)", &count).GroupBy("city").Build()
 	expectedQuery := "SELECT COUNT(*)\n FROM customers\n GROUP BY city"
 	if query != expectedQuery {
-		t.Errorf("bad query: %s", query)
+		t.Errorf("bad query: %q", query)
 	}
 }
 
 func TestSelectWithWherePostgres(t *testing.T) {
 	c := customer{}
 
-	query, args, _ := Postgres.Select().
+	query, args, _ := Select().
+		Dialect(Postgres).
 		From("customers").As("c").
 		Map("c.id", &c.ID).
 		Map("c.name", &c.Name).
@@ -173,12 +207,12 @@ func TestSelectWithWherePostgres(t *testing.T) {
 		Where("c.age", "BETWEEN ? AND ?", 10, 20).
 		Build()
 
-	expectedQuery := `SELECT "c.id", "c.name", "c.telephone" AS "phone", "c.age"
- FROM "customers" AS "c"
- CROSS JOIN "orders" AS "o" ON "o"."customer_id" = "c"."id"
- WHERE ("c.id" = $1) AND ("c.name" IS NOT NULL) AND ("c.age" BETWEEN $2 AND $3)`
+	expectedQuery := `SELECT c.id, c.name, c.telephone AS phone, c.age
+ FROM customers AS c
+ CROSS JOIN orders AS o ON o.customer_id = c.id
+ WHERE (c.id = $1) AND (c.name IS NOT NULL) AND (c.age BETWEEN $2 AND $3)`
 	if query != expectedQuery {
-		t.Errorf("bad query: %s", query)
+		t.Errorf("bad query: %q", query)
 	}
 
 	expectedArgs := []interface{}{9, 10, 20}
@@ -191,7 +225,8 @@ func TestSelectWithInClauseUsingSlice(t *testing.T) {
 	c := customer{}
 
 	input := []int{4, 5, 6}
-	query, args, _ := Postgres.Select().
+	query, args, _ := Select().
+		Dialect(Postgres).
 		From("customers").
 		Map("id", &c.ID).
 		Map("name", &c.Name).
@@ -200,11 +235,11 @@ func TestSelectWithInClauseUsingSlice(t *testing.T) {
 		Where("age", "BETWEEN ? AND ?", 10, 20).
 		Build()
 
-	expectedQuery := `SELECT "id", "name"
- FROM "customers"
- WHERE ("name" IS NOT NULL) AND ("id" in ($1,$2,$3)) AND ("age" BETWEEN $4 AND $5)`
+	expectedQuery := `SELECT id, name
+ FROM customers
+ WHERE (name IS NOT NULL) AND (id in ($1,$2,$3)) AND (age BETWEEN $4 AND $5)`
 	if query != expectedQuery {
-		t.Errorf("bad query: |%s|", query)
+		t.Errorf("bad query: %q", query)
 	}
 
 	expectedArgs := []interface{}{4, 5, 6, 10, 20}

@@ -2,27 +2,24 @@ package sqlbuilder
 
 import (
 	"strconv"
-	"strings"
 )
 
-const mysqlQuote = "`"
-const postgresQuote = `"`
-
+// Dialect represents a SQL dialect.
 type Dialect interface {
-	// Placeholder returns the placeholder string for the given index.
+	// Placeholder returns the placeholder binding string for parameter at index idx.
 	Placeholder(idx int) string
-
-	// Quote returns s quoted.
-	Quote(s string) string
 }
 
-type PlainDialect struct{}
 type MySQLDialect struct{}
 type PostgresDialect struct{}
 
-func (dialect PlainDialect) Placeholder(idx int) string {
-	return "?"
-}
+var (
+	MySQL    MySQLDialect    // MySQL
+	SQLite   MySQLDialect    // SQLite (same as MySQL)
+	Postgres PostgresDialect // Postgres
+)
+
+var DefaultDialect = MySQL // Default dialect
 
 func (dialect MySQLDialect) Placeholder(idx int) string {
 	return "?"
@@ -32,18 +29,3 @@ func (dialect PostgresDialect) Placeholder(idx int) string {
 	return "$" + strconv.Itoa(idx+1)
 }
 
-func quote(s, quote string) string {
-	return quote + strings.Replace(s, quote, "\\"+quote, -1) + quote
-}
-
-func (dialect PlainDialect) Quote(s string) string {
-	return s
-}
-
-func (dialect MySQLDialect) Quote(s string) string {
-	return quote(s, mysqlQuote)
-}
-
-func (dialect PostgresDialect) Quote(s string) string {
-	return quote(s, postgresQuote)
-}

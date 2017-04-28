@@ -8,9 +8,14 @@ import (
 
 var nullDest interface{}
 
+// Select returns a new SELECT statement with the default dialect.
+func Select() SelectStatement {
+	return SelectStatement{dialect: DefaultDialect}
+}
+
 // SelectStatement represents a SELECT statement.
 type SelectStatement struct {
-	dbms     DBMS
+	dialect  Dialect
 	distinct string
 	last     lastWas
 	table    name
@@ -31,7 +36,6 @@ type SelectStatement struct {
 type column struct {
 	col  name
 	dest interface{}
-	raw  bool
 }
 
 type order struct {
@@ -40,11 +44,16 @@ type order struct {
 }
 
 func (o order) build(dialect Dialect) string {
-	q := dialect.Quote(o.col)
 	if o.desc {
-		return q + " DESC"
+		return o.col + " DESC"
 	}
-	return q
+	return o.col
+}
+
+// Dialect returns a new statement with dialect set to 'dialect'.
+func (s SelectStatement) Dialect(dialect Dialect) SelectStatement {
+	s.dialect = dialect
+	return s
 }
 
 // Distinct modifies the select to remove duplicates from the results.
@@ -64,7 +73,7 @@ func (s SelectStatement) From(table string) SelectStatement {
 func (s SelectStatement) Columns(col ...string) SelectStatement {
 	dest := nullDest
 	for _, c := range col {
-		s.columns = append(s.columns, column{name{c, ""}, dest, false})
+		s.columns = append(s.columns, column{name{c, ""}, dest})
 	}
 	s.last = lastWasColumnName
 	return s
@@ -76,17 +85,7 @@ func (s SelectStatement) Map(col string, dest interface{}) SelectStatement {
 	if dest == nil {
 		dest = nullDest
 	}
-	s.columns = append(s.columns, column{name{col, ""}, dest, false})
-	s.last = lastWasColumnName
-	return s
-}
-
-// MapSQL is Map without quoting col.
-func (s SelectStatement) MapSQL(col string, dest interface{}) SelectStatement {
-	if dest == nil {
-		dest = nullDest
-	}
-	s.columns = append(s.columns, column{name{col, ""}, dest, true})
+	s.columns = append(s.columns, column{name{col, ""}, dest})
 	s.last = lastWasColumnName
 	return s
 }
@@ -181,11 +180,7 @@ func (s SelectStatement) Build() (query string, args []interface{}, dest []inter
 
 	if len(s.columns) > 0 {
 		for _, sel := range s.columns {
-			if sel.raw {
-				cols = append(cols, sel.col.String())
-			} else {
-				cols = append(cols, sel.col.QuotedAs(s.dbms.Dialect))
-			}
+			cols = append(cols, sel.col.String())
 			if sel.dest == nil {
 				dest = append(dest, &nullDest)
 			} else {
@@ -200,20 +195,20 @@ func (s SelectStatement) Build() (query string, args []interface{}, dest []inter
 	query = fmt.Sprintf("SELECT %s%s\n FROM %s",
 		s.distinct,
 		strings.Join(cols, ", "),
-		s.table.QuotedAs(s.dbms.Dialect))
+		s.table)
 
 	for _, join := range s.joins {
 		query += join.String()
 	}
 
 	if len(s.wheres) > 0 {
-		query, args, idx = buildWhereClause(query, args, idx, s.wheres, s.dbms.Dialect)
+		query, args, idx = buildWhereClause(query, args, idx, s.wheres, s.dialect)
 	}
 
 	if len(s.order) > 0 {
 		quoted := make([]string, len(s.order))
 		for i, o := range s.order {
-			quoted[i] = o.build(s.dbms.Dialect)
+			quoted[i] = o.build(s.dialect)
 		}
 		query += "\n ORDER BY " + strings.Join(quoted, ", ")
 	}

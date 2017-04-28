@@ -4,6 +4,11 @@ import (
 	"strings"
 )
 
+// Update returns a new UPDATE statement with the default dialect.
+func Update() UpdateStatement {
+	return UpdateStatement{dialect: DefaultDialect}
+}
+
 type updateSet struct {
 	col string
 	arg interface{}
@@ -12,12 +17,18 @@ type updateSet struct {
 
 // UpdateStatement represents an UPDATE statement.
 type UpdateStatement struct {
-	dbms   DBMS
-	last   lastWas
-	table  name
-	sets   []updateSet
-	wheres []where
-	args   []interface{}
+	dialect Dialect
+	last    lastWas
+	table   name
+	sets    []updateSet
+	wheres  []where
+	args    []interface{}
+}
+
+// Dialect returns a new statement with dialect set to 'dialect'.
+func (s UpdateStatement) Dialect(dialect Dialect) UpdateStatement {
+	s.dialect = dialect
+	return s
 }
 
 // Table returns a new statement with the table to update set to 'table'.
@@ -60,7 +71,7 @@ func (s UpdateStatement) Build() (query string, args []interface{}) {
 		panic("sqlbuilder: UPDATE with no columns set")
 	}
 
-	query = "UPDATE " + s.table.QuotedAs(s.dbms.Dialect) + " SET "
+	query = "UPDATE " + s.table.String() + " SET "
 	var sets []string
 	idx := 0
 
@@ -69,16 +80,16 @@ func (s UpdateStatement) Build() (query string, args []interface{}) {
 		if set.raw {
 			arg = set.arg.(string)
 		} else {
-			arg = s.dbms.Dialect.Placeholder(idx)
+			arg = s.dialect.Placeholder(idx)
 			idx++
 			args = append(args, set.arg)
 		}
-		sets = append(sets, s.dbms.Dialect.Quote(set.col)+" = "+arg)
+		sets = append(sets, set.col+" = "+arg)
 	}
 	query += strings.Join(sets, ", ")
 
 	if len(s.wheres) > 0 {
-		query, args, idx = buildWhereClause(query, args, idx, s.wheres, s.dbms.Dialect)
+		query, args, idx = buildWhereClause(query, args, idx, s.wheres, s.dialect)
 	}
 
 	return
