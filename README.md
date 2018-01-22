@@ -5,10 +5,7 @@ sqlbuilder
 
 `sqlbuilder` is a Go library for constructing SQL queries using a fluent API.
 
-The master branch tracks version 3. The latest stable version is
-[2.0.0](https://github.com/thcyron/sqlbuilder/tree/v2.0.0/).
-
-`sqlbuilder` follows [Semantic Versioning](http://semver.org/).
+**This project is now unmaintained and considered obsolete. Please choose an alternative: I recommend [sqlgen2](https://github.com/rickb777/sqlgen2).**
 
 Installation
 ------------
